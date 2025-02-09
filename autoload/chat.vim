@@ -3,16 +3,23 @@ if exists('g:autoloaded_chat')
 endif
 let g:autoloaded_chat = 1
 
+" TODO model options
+" TODO print model name?
+" TODO system message/initial prompt
+let s:vim_chat_config_default = {
+\  "model": "llama3.2:latest",
+\  "endpoint_url": "http://localhost:11434/api/chat"
+\}
 
 " Globals
-let s:url = "http://localhost:11434/api/chat"
-let s:model = "phi4:latest"
-
 let s:response_text = ""
 let s:chat_bufnr = -1
 let s:response_lnum = -1  " Track the line number of the current assistant response
 let s:job_id = v:null
 
+function! chat#GetChatConfig() abort
+    return extend(s:vim_chat_config_default, get(g:, 'vim_chat_config', {}))
+endfunction
 
 function! s:GetChatHistory() abort
     " Get buffer content
@@ -112,11 +119,13 @@ function! chat#AIChatRequest() abort
     " Track the line where assistant's response should be written
     let s:response_lnum = line('$')
 
+    let config = chat#GetChatConfig()
+
     let messages = s:GetChatHistory()
-    let payload = json_encode({"model": s:model, "messages": messages})
+    let payload = json_encode({"model": config["model"], "messages": messages})
 
     " Run curl asynchronously
-    let cmd = ['curl', '-s', s:url, '--no-buffer', '-d', payload]
+    let cmd = ['curl', '-s', config['endpoint_url'], '--no-buffer', '-d', payload]
     let s:job_id = job_start(cmd, {'out_cb': function('s:OnAIResponse'), 'exit_cb': function('s:OnAIResponseEnd')})
 endfunction
 
