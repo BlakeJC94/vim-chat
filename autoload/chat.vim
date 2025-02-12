@@ -18,6 +18,7 @@ let s:response_lnum = -1  " Track the line number of the current assistant respo
 let s:job_id = v:null
 let s:awaiting_response = v:false
 let s:progress_timer = v:null
+let s:messages = []
 
 
 function! chat#GetChatConfig() abort
@@ -74,6 +75,28 @@ function! s:GetChatHistory() abort
 endfunction
 
 
+function! s:GetLastUserQueryContent() abort
+    let l:lines = getbufline(s:chat_bufnr, 1, '$')
+    let l:last_user_index = -1
+
+    " Find the last occurrence of '>>> user'
+    for l:i in reverse(range(len(l:lines)))
+        if l:lines[l:i] == '>>> user'
+            let l:last_user_index = l:i + 1
+            break
+        endif
+    endfor
+
+    " If no '>>> user' marker is found, return empty
+    if l:last_user_index == -1 || l:last_user_index >= len(l:lines)
+        return []
+    endif
+
+    " Return all lines after the last '>>> user'
+    return trim(join(l:lines[l:last_user_index :], "\n"))
+endfunction
+
+
 function! s:PrintProgressMessage() abort
     while s:awaiting_response
         echo "In progress.."
@@ -90,6 +113,7 @@ function! chat#OpenChatBuffer() abort
     if !bufexists('^'.bufname.'$')
         " Create a new buffer
         execute "silent keepalt botright split " . bufname
+        let s:messages = []
     else
         " If buffer exists but not active, switch to it
         execute "silent keepalt botright split buffer " . bufnr('^'.bufname.'$')
@@ -142,8 +166,10 @@ function! chat#AIChatRequest() abort
 
     let config = chat#GetChatConfig()
 
-    let messages = s:GetChatHistory()
-    let payload = json_encode({"model": config["model"], "messages": messages})
+    " let messages = s:GetChatHistory()
+    let message = {"role": "user", "content": s:GetLastUserQueryContent()}
+    let s:messages = add(s:messages, message)
+    let payload = json_encode({"model": config["model"], "messages": s:messages})
 
     " Start progress message loop
     let s:awaiting_response = v:true
@@ -185,8 +211,13 @@ function! s:OnAIResponse(channel, msg) abort
 
     call s:StopProgressMessage()
 
+    if s:messages[-1]["role"] != "assistant"
+        let s:messages = add(s:messages, {"role": "assistant", "content": ""})
+    endif
+
     " Append new chunk to the response text
     let s:response_text .= chunk.message.content
+    let s:messages[-1]["content"] = s:response_text
 
     " Split response into lines for correct formatting
     let response_lines = split(s:response_text, "\n")
