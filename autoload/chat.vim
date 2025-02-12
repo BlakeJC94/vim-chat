@@ -16,10 +16,14 @@ let s:response_text = ""
 let s:chat_bufnr = -1
 let s:response_lnum = -1  " Track the line number of the current assistant response
 let s:job_id = v:null
+let s:awaiting_response = v:false
+let s:progress_timer = v:null
+
 
 function! chat#GetChatConfig() abort
     return extend(s:vim_chat_config_default, get(g:, 'vim_chat_config', {}))
 endfunction
+
 
 function! s:GetChatHistory() abort
     " Get buffer content
@@ -70,6 +74,14 @@ function! s:GetChatHistory() abort
 endfunction
 
 
+function! s:PrintProgressMessage() abort
+    while s:awaiting_response
+        echo "In progress.."
+        sleep 1
+    endwhile
+endfunction
+
+
 function! chat#OpenChatBuffer() abort
     " Define the buffer name
     let bufname = "[Chat]"
@@ -92,8 +104,8 @@ function! chat#OpenChatBuffer() abort
     setlocal filetype=markdown " Enable Markdown highlighting
     setlocal noswapfile       " Prevent swap file creation
     setlocal foldlevel=99
-    nnoremap <buffer> <CR> :call chat#AIChatRequest()<CR>
-    nnoremap <buffer> <C-c> :call chat#StopChatRequest()<CR>
+    nnoremap <silent> <buffer> <CR> <cmd>call chat#AIChatRequest()<CR>
+    nnoremap <silent> <buffer> <BS> <cmd>call chat#StopChatRequest()<CR>
 
     " Store buffer number globally
     let s:chat_bufnr = bufnr
@@ -101,6 +113,15 @@ function! chat#OpenChatBuffer() abort
     normal ggdG
     call setbufline(s:chat_bufnr, 1, [">>> user", ""])
     normal G
+endfunction
+
+
+function! s:PrintProgressMessage(...) abort
+    if !s:awaiting_response
+        return
+    endif
+    echo "In progress..."
+    let s:progress_timer = timer_start(1000, function('s:PrintProgressMessage'))
 endfunction
 
 
@@ -124,19 +145,26 @@ function! chat#AIChatRequest() abort
     let messages = s:GetChatHistory()
     let payload = json_encode({"model": config["model"], "messages": messages})
 
+    " Start progress message loop
+    let s:awaiting_response = v:true
+    let s:progress_timer = timer_start(0, function('s:PrintProgressMessage'))
+
     " Run curl asynchronously
     let cmd = ['curl', '-s', config['endpoint_url'], '--no-buffer', '-d', payload]
     let s:job_id = job_start(cmd, {'out_cb': function('s:OnAIResponse'), 'exit_cb': function('s:OnAIResponseEnd')})
 endfunction
 
 
-function! chat#StopChatRequest() abort
-    if s:job_id is v:null
-        echo "Error: No chat chat request in progress"
-        return
+function! s:StopProgressMessage()
+    if s:awaiting_response
+        " Stop progress timer
+        if s:progress_timer isnot v:null
+            call timer_stop(s:progress_timer)
+            let s:progress_timer = v:null
+        endif
+        let s:awaiting_response = v:false
+        echo ""
     endif
-    echo "Stopping chat request"
-    call job_stop(s:job_id)
 endfunction
 
 
@@ -154,6 +182,8 @@ function! s:OnAIResponse(channel, msg) abort
     if !has_key(chunk, 'message')
         return
     endif
+
+    call s:StopProgressMessage()
 
     " Append new chunk to the response text
     let s:response_text .= chunk.message.content
@@ -181,7 +211,19 @@ endfunction
 function! s:OnAIResponseEnd(job, status) abort
     let s:response_text = ""
     let s:job_id = v:null
+    call s:StopProgressMessage()
 endfunction
+
+
+function! chat#StopChatRequest() abort
+    if s:job_id is v:null
+        echo "Error: No chat chat request in progress"
+        return
+    endif
+    echo "Stopping chat request"
+    call job_stop(s:job_id)
+endfunction
+
 
 " TODO
 " function! SaveChatHistory() abort

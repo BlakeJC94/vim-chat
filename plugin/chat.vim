@@ -1,6 +1,6 @@
 " TODO Default config
 
-command Chat :call chat#OpenChatBuffer()
+command! Chat call chat#OpenChatBuffer()
 
 " TODO
 " command SaveChat :call chat#SaveChatHistory()
