@@ -89,13 +89,54 @@ function! s:GetLastUserQueryContent() abort
 
     " If no '>>> user' marker is found, return empty
     if l:last_user_index == -1 || l:last_user_index >= len(l:lines)
-        return []
+        return ''
+    endif
+
+    " Collect all lines until the next marker (or end of buffer)
+    let l:user_text = []
+    for l:j in range(l:last_user_index, len(l:lines)-1)
+        if l:lines[l:j] =~ '^<<< ' || l:lines[l:j] =~ '^>>> ' " Stop at next marker
+            break
+        endif
+        call add(l:user_text, substitute(l:lines[l:j], '\s\+$', '', ''))
+    endfor
+
+    " Process text to join wrapped lines while preserving code blocks
+    let l:processed_lines = []
+    let l:current_paragraph = []
+
+    for l:line in l:user_text
+        if l:line =~ '^\s*$'  " Blank line: end of paragraph
+            if !empty(l:current_paragraph)
+                call add(l:processed_lines, join(l:current_paragraph, ' '))
+                let l:current_paragraph = []
+            endif
+            call add(l:processed_lines, '')  " Preserve blank line
+        elseif l:line =~ '^\s'
+            " Likely a code block (indented line), preserve as-is
+            if !empty(l:current_paragraph)
+                call add(l:processed_lines, join(l:current_paragraph, ' '))
+                let l:current_paragraph = []
+            endif
+            call add(l:processed_lines, l:line)
+        else
+            " Normal sentence, add to paragraph buffer
+            call add(l:current_paragraph, l:line)
+        endif
+    endfor
+
+    " Add any remaining paragraph
+    if !empty(l:current_paragraph)
+        call add(l:processed_lines, join(l:current_paragraph, ' '))
     endif
 
     " Return all lines after the last '>>> user'
-    return trim(join(l:lines[l:last_user_index :], "\n"))
+    return trim(join(l:processed_lines, "\n"))
 endfunction
 
+function! chat#Debug()
+    echo s:messages
+endfunction
 
 function! s:PrintProgressMessage() abort
     while s:awaiting_response
