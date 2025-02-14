@@ -139,6 +139,7 @@ function! s:GetLastUserQueryContent() abort
     return trim(join(l:processed_lines, "\n"))
 endfunction
 
+
 function! chat#Debug()
     echo s:messages
 endfunction
@@ -153,6 +154,7 @@ function! chat#OpenChatBuffer() abort
         " Create a new buffer
         execute "silent keepalt botright split " . bufname
         let s:messages = []
+        " TODO Create new history file
     else
         " If buffer exists but not active, switch to it
         execute "silent keepalt botright split buffer " . bufnr('^'.bufname.'$')
@@ -160,12 +162,12 @@ function! chat#OpenChatBuffer() abort
     let bufnr = bufnr('%')
 
     " Set buffer options
-    setlocal buftype=nofile   " Unlisted, scratch buffer
-    setlocal bufhidden=hide   " Hide buffer when switching
-    setlocal nowrap           " Disable text wrapping
+    setlocal buftype=nofile    " Unlisted, scratch buffer
+    setlocal bufhidden=hide    " Hide buffer when switching
+    setlocal nowrap            " Disable text wrapping
     setlocal foldmethod=manual " Disable automatic folds
     setlocal filetype=markdown " Enable Markdown highlighting
-    setlocal noswapfile       " Prevent swap file creation
+    setlocal noswapfile        " Prevent swap file creation
     setlocal foldlevel=99
     nnoremap <silent> <buffer> <CR> <cmd>call chat#AIChatRequest()<CR>
     nnoremap <silent> <buffer> <BS> <cmd>call chat#StopChatRequest()<CR>
@@ -208,6 +210,7 @@ function! chat#AIChatRequest() abort
     " let messages = s:GetChatHistory()
     let message = {"role": "user", "content": s:GetLastUserQueryContent()}
     let s:messages = add(s:messages, message)
+    " TODO Save to history file
     let payload = json_encode({"model": config["model"], "messages": s:messages})
 
     " Start progress message loop
@@ -270,6 +273,7 @@ function! s:OnAIResponse(channel, msg) abort
         call win_execute(winid, "normal! G")
     endif
 
+    " TODO Write finished message to hist file
     if has_key(chunk, "done_reason")
         call appendbufline(s:chat_bufnr, '$', ["", "<<< assistant", ">>> user", ""])
         let s:response_text = ""
