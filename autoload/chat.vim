@@ -152,7 +152,6 @@ endfunction
 
 function! s:UpdateHistory() abort
     let filepath = chat#GetChatPath() . '/' . s:messages_filename
-    echo filepath
     let json_list = map(copy(s:messages), 'printf("  %s", json_encode(v:val))')
     let json_str = "[\n" . join(json_list, ",\n") . "\n]"
     silent! call writefile(split(json_str, "\n"), filepath)
@@ -280,17 +279,17 @@ function! s:OnAIResponse(channel, msg) abort
     " Update buffer with multi-line response
     call setbufline(s:chat_bufnr, s:response_lnum, response_lines)
 
-    " Scroll to bottom
-    let winid = bufwinid(s:chat_bufnr)
-    if winid != -1
-        call win_execute(winid, "normal! G")
-    endif
-
     if has_key(chunk, "done_reason")
         call appendbufline(s:chat_bufnr, '$', ["", "<<< assistant", ">>> user", ""])
         call s:UpdateHistory()
         let s:response_text = ""
         let s:response_lnum = line('$')  " Update response line tracking
+    endif
+
+    " Scroll to bottom
+    let winid = bufwinid(s:chat_bufnr)
+    if winid != -1
+        call win_execute(winid, "normal! G")
     endif
 endfunction
 
@@ -313,59 +312,53 @@ endfunction
 
 
 " TODO
-" function! SaveChatHistory() abort
-"     " if s:chat_bufnr == -1 || !bufexists(s:chat_bufnr)
-"     "     echo "Error: Chat buffer no longer exists"
-"     "     return
-"     " endif
-"     let chat_history = s:GetChatHistory()
-"     " Convert to JSON
-"     let json_string = json_encode(chat_history)
+function! chat#LoadChatHistory(filename) abort
+    let filepath = chat#GetChatPath() . '/' . a:filename
+    if !filereadable(filepath)
+        echo "Error: File does not exist"
+        return
+    endif
 
-"     let temp_file = tempname()
-"     call writefile([json_string], temp_file, "b")
-"     let json_string = system('python -m json.tool ' . shellescape(temp_file))
-"     call delete(temp_file)
+    let json_string = join(readfile(filepath, 'b'), "\n")
+    let chat_history = json_decode(json_string)
+    let s:message = chat_history
+    let s:messages_filename = fnamemodify(filepath, ":t")
 
-"     " Create history folder if it doesn't exist
-"     let history_dir = expand('~/.vim_chat_history')
-"     if !isdirectory(history_dir)
-"         call mkdir(history_dir, "p")
-"     endif
+    " Ensure the chat buffer is created
+    call chat#OpenChatBuffer()
 
-"     " Generate timestamped filename
-"     let timestamp = strftime('%Y-%m-%d_%H-%M-%S')
-"     let filename = history_dir . '/chat_' . timestamp . '.json'
+    " Clear buffer before inserting history
+    normal ggdG
 
-"     " Save to file
-"     call writefile(split(json_string, '\n'), filename, 'b')
+    " Append messages in the correct format
+    for msg_idx in range(len(chat_history))
+        let msg = chat_history[msg_idx]
+        if msg.role == "user"
+            if msg_idx == 0
+                call setbufline(s:chat_bufnr, '$', ">>> user")
+            else
+                call appendbufline(s:chat_bufnr, '$', "<<< assistant")
+                call appendbufline(s:chat_bufnr, '$', ">>> user")
+            endif
+        elseif msg.role == "assistant"
+            call appendbufline(s:chat_bufnr, '$', "<<< user")
+            call appendbufline(s:chat_bufnr, '$', ">>> assistant")
+        endif
+        call appendbufline(s:chat_bufnr, '$', split(msg.content, "\n") + [""])
+    endfor
 
-"     echo "Chat history saved to " . filename
-" endfunction
+    " Get the first non-empty line
+    let start_line = 1
+    while getline(start_line) == ''
+        let start_line += 1
+    endwhile
 
-" " TODO
-" function! LoadChatHistory(filename) abort
-"     if !filereadable(a:filename)
-"         echo "Error: File does not exist"
-"         return
-"     endif
+    " Delete all lines above the first non-empty line
+    if start_line > 1
+        execute '1,' . (start_line - 1) . 'd'
+    endif
 
-"     let json_string = join(readfile(a:filename, 'b'), "\n")
-"     let chat_history = json_decode(json_string)
-
-"     " Ensure the chat buffer is created
-"     call OpenChatBuffer()
-"     call setbufline(s:chat_bufnr, 1, []) " Clear buffer before inserting history
-
-"     " Append messages in the correct format
-"     for msg in chat_history
-"         if msg.role == "user"
-"             call appendbufline(s:chat_bufnr, '$', ">>> user")
-"         elseif msg.role == "assistant"
-"             call appendbufline(s:chat_bufnr, '$', "<<< user")
-"         endif
-"         call appendbufline(s:chat_bufnr, '$', split(msg.content, "\n"))
-"     endfor
-
-"     echo "Chat history loaded from " . a:filename
-" endfunction
+    call appendbufline(s:chat_bufnr, '$', [">>> user", ""])
+    normal! G
+    echo "Chat history loaded from " . a:filename
+endfunction
