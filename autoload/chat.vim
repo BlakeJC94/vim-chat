@@ -138,13 +138,6 @@ function! chat#Debug()
     echo s:messages
 endfunction
 
-function! s:PrintProgressMessage() abort
-    while s:awaiting_response
-        echo "In progress.."
-        sleep 1
-    endwhile
-endfunction
-
 
 function! chat#OpenChatBuffer() abort
     " Define the buffer name
