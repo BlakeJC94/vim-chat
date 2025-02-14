@@ -10,7 +10,7 @@ let s:vim_chat_config_default = {
 \  "model": "llama3.2:latest",
 \  "endpoint_url": "http://localhost:11434/api/chat"
 \}
-let s:vim_chat_path_default = "~/.chat.vim"
+let s:vim_chat_path_default = expand("$HOME") . "/.chat.vim"
 
 " Globals
 let s:response_text = ""
@@ -20,6 +20,7 @@ let s:job_id = v:null
 let s:awaiting_response = v:false
 let s:progress_timer = v:null
 let s:messages = []
+let s:messages_filename = v:null
 
 
 function! chat#GetChatConfig() abort
@@ -27,7 +28,11 @@ function! chat#GetChatConfig() abort
 endfunction
 
 function! chat#GetChatPath() abort
-    return get(g:, 'vim_chat_path', s:vim_chat_path)
+    let chat_path = get(g:, 'vim_chat_path', s:vim_chat_path_default)
+    if !isdirectory(chat_path)
+        call mkdir(chat_path, "p")
+    endif
+    return chat_path
 endfunction
 
 
@@ -145,6 +150,15 @@ function! chat#Debug()
 endfunction
 
 
+function! s:UpdateHistory() abort
+    let filepath = chat#GetChatPath() . '/' . s:messages_filename
+    echo filepath
+    let json_list = map(copy(s:messages), 'printf("  %s", json_encode(v:val))')
+    let json_str = "[\n" . join(json_list, ",\n") . "\n]"
+    silent! call writefile(split(json_str, "\n"), filepath)
+endfunction
+
+
 function! chat#OpenChatBuffer() abort
     " Define the buffer name
     let bufname = "[Chat]"
@@ -154,7 +168,7 @@ function! chat#OpenChatBuffer() abort
         " Create a new buffer
         execute "silent keepalt botright split " . bufname
         let s:messages = []
-        " TODO Create new history file
+        let s:messages_filename = strftime('%Y-%m-%d_%H-%m_') . printf("%08x", rand()) . ".chat.vim.json"
     else
         " If buffer exists but not active, switch to it
         execute "silent keepalt botright split buffer " . bufnr('^'.bufname.'$')
@@ -207,10 +221,9 @@ function! chat#AIChatRequest() abort
 
     let config = chat#GetChatConfig()
 
-    " let messages = s:GetChatHistory()
     let message = {"role": "user", "content": s:GetLastUserQueryContent()}
     let s:messages = add(s:messages, message)
-    " TODO Save to history file
+    call s:UpdateHistory()
     let payload = json_encode({"model": config["model"], "messages": s:messages})
 
     " Start progress message loop
@@ -273,9 +286,9 @@ function! s:OnAIResponse(channel, msg) abort
         call win_execute(winid, "normal! G")
     endif
 
-    " TODO Write finished message to hist file
     if has_key(chunk, "done_reason")
         call appendbufline(s:chat_bufnr, '$', ["", "<<< assistant", ">>> user", ""])
+        call s:UpdateHistory()
         let s:response_text = ""
         let s:response_lnum = line('$')  " Update response line tracking
     endif
