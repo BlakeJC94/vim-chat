@@ -10,6 +10,7 @@ let s:vim_chat_config_default = {
 \  "model": "llama3.2:latest",
 \  "endpoint_url": "http://localhost:11434/api/chat"
 \}
+let s:vim_chat_path_default = "~/.chat.vim"
 
 " Globals
 let s:response_text = ""
@@ -23,6 +24,10 @@ let s:messages = []
 
 function! chat#GetChatConfig() abort
     return extend(s:vim_chat_config_default, get(g:, 'vim_chat_config', {}))
+endfunction
+
+function! chat#GetChatPath() abort
+    return get(g:, 'vim_chat_path', s:vim_chat_path)
 endfunction
 
 
