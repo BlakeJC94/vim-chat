@@ -1,3 +1,5 @@
+" TODO Better parsing
+" TODO search hist
 " TODO model options
 " TODO print model name?
 " TODO system message/initial prompt
@@ -8,19 +10,13 @@ let s:vim_chat_config_default = {
 let s:vim_chat_path_default = expand("$HOME") . "/.chat.vim"
 
 " Globals
-let s:response_text = ""
-let s:response_lnum = -1  " Track the line number of the current assistant response
-let s:job_id = v:null
-let s:awaiting_response = v:false
-let s:progress_timer = v:null
+let s:chat_states = {}
 
-let s:chat_bufnr = -1
-let s:messages = []
-let s:messages_filepath = v:null
 
 function! chat#GetChatConfig() abort
     return extend(s:vim_chat_config_default, get(g:, 'vim_chat_config', {}))
 endfunction
+
 
 function! chat#GetChatPath() abort
     let chat_path = get(g:, 'vim_chat_path', s:vim_chat_path_default)
@@ -81,7 +77,7 @@ endfunction
 
 
 function! s:GetLastUserQueryContent() abort
-    let l:lines = getbufline(s:chat_bufnr, 1, '$')
+    let l:lines = getbufline("%", 1, '$')
     let l:last_user_index = -1
 
     " Find the last occurrence of '>>> user'
@@ -140,102 +136,108 @@ function! s:GetLastUserQueryContent() abort
 endfunction
 
 
-function! chat#Debug()
-    echo s:messages
-endfunction
-
-function! s:UpdateHistory() abort
-    let json_list = map(copy(s:messages), 'printf("  %s", json_encode(v:val))')
-    let json_str = "[\n" . join(json_list, ",\n") . "\n]"
-    silent! call writefile(split(json_str, "\n"), s:messages_filepath)
-endfunction
-
-
-function! chat#OpenChatBuffer() abort
-    " Define the buffer name
-    let bufname = "[Chat]"
-
-    " Check if the buffer exists
-    if !bufexists('^'.bufname.'$')
-        " Create a new buffer
-        execute "silent keepalt botright split " . bufname
-        let filename = strftime('%Y-%m-%d_%H-%m_') . printf("%08x", rand()) . ".chat.vim.json"
-        let s:messages_filepath = chat#GetChatPath() . '/' . filename
-        let s:messages = []
-    else
-        " If buffer exists but not active, switch to it
-        execute "silent keepalt botright split buffer " . bufnr('^'.bufname.'$')
+function! s:UpdateHistory(bufnr) abort
+    let state = get(s:chat_states, a:bufnr, v:null)
+    if state is v:null
+        return
     endif
-    let bufnr = bufnr('%')
-
-    " Set buffer options
-    setlocal filetype=chat
-
-    " Store buffer number globally
-    let s:chat_bufnr = bufnr
-
-    normal ggdG
-    call setbufline(s:chat_bufnr, 1, [">>> user", ""])
-    normal G
+    let json_list = map(copy(state['messages']), 'printf("  %s", json_encode(v:val))')
+    let json_str = "[\n" . join(json_list, ",\n") . "\n]"
+    silent! call writefile(split(json_str, "\n"), state['messages_filepath'])
 endfunction
 
 
-function! s:PrintProgressMessage(...) abort
-    if !s:awaiting_response
+function! s:InitialiseChatBufferState(bufnr) abort
+    let s:chat_states[a:bufnr] = {
+        \ "response_text": "",
+        \ "response_lnum": -1,
+        \ "job_id": v:null,
+        \ "awaiting_response": v:false,
+        \ "progress_timer": v:null,
+        \ "messages": [],
+        \ "messages_filepath": expand('%'),
+        \ }
+    return s:chat_states[a:bufnr]
+endfunction
+
+
+function! chat#NewChatFilepath() abort
+    let filename = strftime('%Y-%m-%d_%H-%m_') . printf("%08x", rand()) . ".chat.vim.json"
+    return chat#GetChatPath() . '/' . filename
+endfunction
+
+
+
+function! s:PrintProgressMessage(bufnr, timer_id) abort
+    let state = s:chat_states[a:bufnr]
+    if !state['awaiting_response']
         return
     endif
     echo "In progress..."
-    let s:progress_timer = timer_start(1000, function('s:PrintProgressMessage'))
+    let state['progress_timer'] = timer_start(1000, function('s:PrintProgressMessage', [a:bufnr]))
 endfunction
 
 
 function! chat#StartChatRequest() abort
-    if bufnr('%') != s:chat_bufnr
-        echo "Error: Can only send chat requests from [Chat] buffer"
+    let bufnr = bufnr('%')
+    if !has_key(s:chat_states, bufnr)
+        echo "Error: No chat buffer state for current buffer"
         return
     endif
-    if s:job_id isnot v:null
+
+    let state = s:chat_states[bufnr]
+
+    if state['job_id'] isnot v:null
         echo "Error: Chat request already in progress"
         return
     endif
 
-    call appendbufline(s:chat_bufnr, '$', ["", "<<< user", ">>> assistant", ""])
+    call appendbufline(bufnr, '$', ["", "<<< user", ">>> assistant", ""])
 
     " Track the line where assistant's response should be written
-    let s:response_lnum = line('$')
+    let state['response_lnum'] = line('$')
 
     let config = chat#GetChatConfig()
 
-    let message = {"role": "user", "content": s:GetLastUserQueryContent()}
-    let s:messages = add(s:messages, message)
-    call s:UpdateHistory()
-    let payload = json_encode({"model": config["model"], "messages": s:messages})
+    let msg = {"role": "user", "content": s:GetLastUserQueryContent()}
+    let state['messages'] += [msg]
+    call s:UpdateHistory(bufnr)
+    let payload = json_encode({"model": config["model"], "messages": state['messages']})
 
     " Start progress message loop
-    let s:awaiting_response = v:true
-    let s:progress_timer = timer_start(0, function('s:PrintProgressMessage'))
+    let state['awaiting_response'] = v:true
+    let state['progress_timer'] = timer_start(0, function('s:PrintProgressMessage', [bufnr]))
 
     " Run curl asynchronously
     let cmd = ['curl', '-s', config['endpoint_url'], '--no-buffer', '-d', payload]
-    let s:job_id = job_start(cmd, {'out_cb': function('s:OnAIResponse'), 'exit_cb': function('s:OnAIResponseEnd')})
+    let state['job_id'] = job_start(cmd, {
+        \ 'out_cb': function('s:OnAIResponse', [bufnr]),
+        \ 'exit_cb': function('s:OnAIResponseEnd', [bufnr])
+        \ })
 endfunction
 
 
-function! s:StopProgressMessage()
-    if s:awaiting_response
+function! s:StopProgressMessage(bufnr)
+    let state = get(s:chat_states, a:bufnr, v:null)
+    if state is v:null
+        return
+    endif
+    if state['awaiting_response']
         " Stop progress timer
-        if s:progress_timer isnot v:null
-            call timer_stop(s:progress_timer)
-            let s:progress_timer = v:null
+        if state['progress_timer'] isnot v:null
+            call timer_stop(state['progress_timer'])
+            let state['progress_timer'] = v:null
         endif
-        let s:awaiting_response = v:false
+        let state['awaiting_response'] = v:false
         echo ""
     endif
 endfunction
 
 
-function! s:OnAIResponse(channel, msg) abort
-    if s:chat_bufnr == -1 || !bufexists(s:chat_bufnr)
+function! s:OnAIResponse(bufnr, channel, msg) abort
+    let state = get(s:chat_states, a:bufnr, v:null)
+
+    if state is v:null || !bufexists(a:bufnr)
         echo "Error: Chat buffer no longer exists"
         return
     endif
@@ -249,63 +251,77 @@ function! s:OnAIResponse(channel, msg) abort
         return
     endif
 
-    call s:StopProgressMessage()
+    call s:StopProgressMessage(a:bufnr)
 
-    if s:messages[-1]["role"] != "assistant"
-        let s:messages = add(s:messages, {"role": "assistant", "content": ""})
+    if state['messages'][-1]["role"] != "assistant"
+        let state['messages'] += [{"role": "assistant", "content": ""}]
     endif
 
     " Append new chunk to the response text
-    let s:response_text .= chunk.message.content
-    let s:messages[-1]["content"] = s:response_text
+    let state['response_text'] .= chunk.message.content
+    let state['messages'][-1]["content"] = state['response_text']
 
     " Split response into lines for correct formatting
-    let response_lines = split(s:response_text, "\n")
+    let response_lines = split(state['response_text'], "\n")
 
     " Update buffer with multi-line response
-    call setbufline(s:chat_bufnr, s:response_lnum, response_lines)
+    call setbufline(a:bufnr, state['response_lnum'], response_lines)
 
     if has_key(chunk, "done_reason")
-        call appendbufline(s:chat_bufnr, '$', ["", "<<< assistant", ">>> user", ""])
-        call s:UpdateHistory()
-        let s:response_text = ""
-        let s:response_lnum = line('$')  " Update response line tracking
+        call appendbufline(a:bufnr, '$', ["", "<<< assistant", ">>> user", ""])
+        call s:UpdateHistory(a:bufnr)
+        let state['response_text'] = ""
+        let state['response_lnum'] = line('$')  " Update response line tracking
     endif
 
     " Scroll to bottom
-    let winid = bufwinid(s:chat_bufnr)
+    let winid = bufwinid(a:bufnr)
     if winid != -1
         call win_execute(winid, "normal! G")
     endif
 endfunction
 
 
-function! s:OnAIResponseEnd(job, status) abort
-    let s:response_text = ""
-    let s:job_id = v:null
-    call s:StopProgressMessage()
+function! s:OnAIResponseEnd(bufnr, job, status) abort
+    let state = get(s:chat_states, a:bufnr, v:null)
+    let state['response_text'] = ""
+    let state['job_id'] = v:null
+    call s:StopProgressMessage(a:bufnr)
 endfunction
 
 
 function! chat#StopChatRequest() abort
-    if s:job_id is v:null
+    let bufnr = bufnr('%')
+    let state = get(s:chat_states, bufnr, v:null)
+    if state['job_id'] is v:null
         echo "Error: No chat chat request in progress"
         return
     endif
     echo "Stopping chat request"
-    call job_stop(s:job_id)
+    call job_stop(state['job_id'])
 endfunction
 
 
-function! chat#RenderBuffer()
-    try
-        let s:chat_bufnr = bufnr('%')
-        let s:messages = json_decode(join(getbufline(s:chat_bufnr, 1, '$'), ""))
-        let s:messages_filepath = expand('%')
-    catch /JSON/
-        echohl ErrorMsg | echom "Invalid JSON format" | echohl None
+function! chat#InitializeChatBuffer()
+    let bufnr = bufnr('%')
+    if has_key(s:chat_states, bufnr)
+        echo "Chat buffer already initialized"
         return
-    endtry
+    endif
+
+    let state = s:InitialiseChatBufferState(bufnr)
+
+    let json_str = trim(join(getbufline(bufnr, 1, '$'), ""))
+    if empty(json_str)
+        let state['messages'] = []
+    else
+        try
+            let state['messages'] = json_decode(json_str)
+        catch /JSON/
+            echohl ErrorMsg | echom "Invalid JSON format" | echohl None
+            return
+        endtry
+    endif
 
     execute 'silent! file [Chat]'
 
@@ -313,33 +329,28 @@ function! chat#RenderBuffer()
     normal ggdG
 
     " Append messages in the correct format
-    for msg_idx in range(len(s:messages))
-        let msg = s:messages[msg_idx]
+    for msg_idx in range(len(state['messages']))
+        let msg = state['messages'][msg_idx]
         if msg.role == "user"
             if msg_idx == 0
-                call setbufline(s:chat_bufnr, '$', ">>> user")
+                call setbufline(bufnr, '$', ">>> user")
             else
-                call appendbufline(s:chat_bufnr, '$', "<<< assistant")
-                call appendbufline(s:chat_bufnr, '$', ">>> user")
+                call appendbufline(bufnr, '$', "<<< assistant")
+                call appendbufline(bufnr, '$', ">>> user")
             endif
         elseif msg.role == "assistant"
-            call appendbufline(s:chat_bufnr, '$', "<<< user")
-            call appendbufline(s:chat_bufnr, '$', ">>> assistant")
+            call appendbufline(bufnr, '$', "<<< user")
+            call appendbufline(bufnr, '$', ">>> assistant")
         endif
-        call appendbufline(s:chat_bufnr, '$', split(msg.content, "\n") + [""])
+        call appendbufline(bufnr, '$', split(msg.content, "\n") + [""])
     endfor
 
-    " Get the first non-empty line
-    let start_line = 1
-    while getline(start_line) == ''
-        let start_line += 1
+    call appendbufline(bufnr, '$', [">>> user", ""])
+
+    let lnum = 1
+    while lnum <= line('$') && getline(lnum) =~ '^\s*$'
+        execute lnum . 'delete'
     endwhile
 
-    " Delete all lines above the first non-empty line
-    if start_line > 1
-        execute '1,' . (start_line - 1) . 'd'
-    endif
-
-    call appendbufline(s:chat_bufnr, '$', [">>> user", ""])
     normal! G
 endfunction
