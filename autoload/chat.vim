@@ -197,7 +197,7 @@ function! s:PrintProgressMessage(...) abort
 endfunction
 
 
-function! chat#AIChatRequest() abort
+function! chat#StartChatRequest() abort
     if bufnr('%') != s:chat_bufnr
         echo "Error: Can only send chat requests from [Chat] buffer"
         return
