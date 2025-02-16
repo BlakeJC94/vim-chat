@@ -9,14 +9,14 @@ let s:vim_chat_path_default = expand("$HOME") . "/.chat.vim"
 
 " Globals
 let s:response_text = ""
-let s:chat_bufnr = -1
 let s:response_lnum = -1  " Track the line number of the current assistant response
 let s:job_id = v:null
 let s:awaiting_response = v:false
 let s:progress_timer = v:null
-let s:messages = []
-let s:messages_filename = v:null
 
+let s:chat_bufnr = -1
+let s:messages = []
+let s:messages_filepath = v:null
 
 function! chat#GetChatConfig() abort
     return extend(s:vim_chat_config_default, get(g:, 'vim_chat_config', {}))
