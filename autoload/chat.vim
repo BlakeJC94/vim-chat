@@ -144,12 +144,10 @@ function! chat#Debug()
     echo s:messages
 endfunction
 
-
 function! s:UpdateHistory() abort
-    let filepath = chat#GetChatPath() . '/' . s:messages_filename
     let json_list = map(copy(s:messages), 'printf("  %s", json_encode(v:val))')
     let json_str = "[\n" . join(json_list, ",\n") . "\n]"
-    silent! call writefile(split(json_str, "\n"), filepath)
+    silent! call writefile(split(json_str, "\n"), s:messages_filepath)
 endfunction
 
 
@@ -161,8 +159,9 @@ function! chat#OpenChatBuffer() abort
     if !bufexists('^'.bufname.'$')
         " Create a new buffer
         execute "silent keepalt botright split " . bufname
+        let filename = strftime('%Y-%m-%d_%H-%m_') . printf("%08x", rand()) . ".chat.vim.json"
+        let s:messages_filepath = chat#GetChatPath() . '/' . filename
         let s:messages = []
-        let s:messages_filename = strftime('%Y-%m-%d_%H-%m_') . printf("%08x", rand()) . ".chat.vim.json"
     else
         " If buffer exists but not active, switch to it
         execute "silent keepalt botright split buffer " . bufnr('^'.bufname.'$')
@@ -306,28 +305,24 @@ function! chat#StopChatRequest() abort
 endfunction
 
 
-" TODO
-function! chat#LoadChatHistory(filename) abort
-    let filepath = chat#GetChatPath() . '/' . a:filename
-    if !filereadable(filepath)
-        echo "Error: File does not exist"
+function! chat#RenderBuffer()
+    try
+        let s:chat_bufnr = bufnr('%')
+        let s:messages = json_decode(join(getbufline(s:chat_bufnr, 1, '$'), ""))
+        let s:messages_filepath = expand('%')
+    catch /JSON/
+        echohl ErrorMsg | echom "Invalid JSON format" | echohl None
         return
-    endif
+    endtry
 
-    let json_string = join(readfile(filepath, 'b'), "\n")
-    let chat_history = json_decode(json_string)
-    let s:message = chat_history
-    let s:messages_filename = fnamemodify(filepath, ":t")
-
-    " Ensure the chat buffer is created
-    call chat#OpenChatBuffer()
+    execute 'silent! file [Chat]'
 
     " Clear buffer before inserting history
     normal ggdG
 
     " Append messages in the correct format
-    for msg_idx in range(len(chat_history))
-        let msg = chat_history[msg_idx]
+    for msg_idx in range(len(s:messages))
+        let msg = s:messages[msg_idx]
         if msg.role == "user"
             if msg_idx == 0
                 call setbufline(s:chat_bufnr, '$', ">>> user")
@@ -355,5 +350,4 @@ function! chat#LoadChatHistory(filename) abort
 
     call appendbufline(s:chat_bufnr, '$', [">>> user", ""])
     normal! G
-    echo "Chat history loaded from " . a:filename
 endfunction
