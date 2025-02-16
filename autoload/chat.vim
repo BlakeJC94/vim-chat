@@ -274,10 +274,15 @@ function! s:OnAIResponse(bufnr, channel, msg) abort
         let state['response_lnum'] = line('$')  " Update response line tracking
     endif
 
-    " Scroll to bottom
+    " Scroll to bottom only if the cursor is already on the last line
     let winid = bufwinid(a:bufnr)
     if winid != -1
-        call win_execute(winid, "normal! G")
+        let cursor_lnum = win_execute(winid, 'echo line(".")')->split("\n")[-1]
+        let last_lnum = win_execute(winid, 'echo line("$")')->split("\n")[-1]
+
+        if cursor_lnum + 1 == last_lnum
+            call win_execute(winid, "normal! G")
+        endif
     endif
 endfunction
 
