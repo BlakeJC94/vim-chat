@@ -1,8 +1,3 @@
-if exists('g:autoloaded_chat')
-    finish
-endif
-let g:autoloaded_chat = 1
-
 " TODO model options
 " TODO print model name?
 " TODO system message/initial prompt
