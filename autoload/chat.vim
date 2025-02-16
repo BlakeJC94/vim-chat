@@ -169,15 +169,7 @@ function! chat#OpenChatBuffer() abort
     let bufnr = bufnr('%')
 
     " Set buffer options
-    setlocal buftype=nofile    " Unlisted, scratch buffer
-    setlocal bufhidden=hide    " Hide buffer when switching
-    setlocal nowrap            " Disable text wrapping
-    setlocal foldmethod=manual " Disable automatic folds
-    setlocal filetype=markdown " Enable Markdown highlighting
-    setlocal noswapfile        " Prevent swap file creation
-    setlocal foldlevel=99
-    nnoremap <silent> <buffer> <CR> <cmd>call chat#AIChatRequest()<CR>
-    nnoremap <silent> <buffer> <BS> <cmd>call chat#StopChatRequest()<CR>
+    setlocal filetype=chat
 
     " Store buffer number globally
     let s:chat_bufnr = bufnr
