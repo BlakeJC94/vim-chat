@@ -1,4 +1,5 @@
 " TODO Better parsing
+" TODO Send chat request on write
 " TODO search hist
 " TODO model options
 " TODO print model name?
@@ -192,25 +193,50 @@ function! chat#StartChatRequest() abort
         return
     endif
 
+    let config = chat#GetChatConfig()
+
+    let header = [
+        \ '-H',
+        \ 'Content-Type: application/json',
+        \ ]
+    if haskey(config, 'token_var')
+        if getenv(config['token_var']) == ''
+            echo "Error: Key not found in environment variable '".config["token_var"]."'"
+            return
+        endif
+        let header = header + [
+            \ '-H',
+            \ 'Authorization: Bearer '. getenv(config['token_var']),
+            \ ]
+    endif
+
     call appendbufline(bufnr, '$', ["", "<<< user", ">>> assistant", ""])
 
     " Track the line where assistant's response should be written
     let state['response_lnum'] = line('$')
-
-    let config = chat#GetChatConfig()
 
     let msg = {"role": "user", "content": s:GetLastUserQueryContent()}
     let state['messages'] += [msg]
     call s:UpdateHistory(bufnr)
     let payload = json_encode({"model": config["model"], "messages": state['messages']})
 
+    " Run curl asynchronously
+    let body = [
+        \ '-d',
+        \ payload,
+        \ ]
+    let cmd = [
+        \ 'curl',
+        \ '--no-buffer',
+        \ config['endpoint_url']
+        \ ]
+
     " Start progress message loop
     let state['awaiting_response'] = v:true
     let state['progress_timer'] = timer_start(0, function('s:PrintProgressMessage', [bufnr]))
 
-    " Run curl asynchronously
-    let cmd = ['curl', '-s', config['endpoint_url'], '--no-buffer', '-d', payload]
-    let state['job_id'] = job_start(cmd, {
+    " Launch curl asynchronously
+    let state['job_id'] = job_start(cmd + header + body, {
         \ 'out_cb': function('s:OnAIResponse', [bufnr]),
         \ 'exit_cb': function('s:OnAIResponseEnd', [bufnr])
         \ })

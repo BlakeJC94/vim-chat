@@ -56,8 +56,14 @@ let g:vim_chat_config = {
 \}
 ```
 
-*NOTE:* At this stage, only `ollama` is supported, but authenticated endpoints such as  `OpenAI` are
-coming soon.
+If using an enpoint that requires a token for authentication (such as OpenAI), export the token to
+your environment (`$ export TOKEN=<token-value>`) and let vim-chat know where to access this key
+```
+let g:vim_chat_config = {
+\  ...
+\  "token_var": "TOKEN"
+\}
+```
 
 ## Issues
 If any errors are encountered (or you would like to make a feature request), raise an issue on the
