@@ -173,7 +173,7 @@ function! s:PrintProgressMessage(bufnr, timer_id) abort
     if !state['awaiting_response']
         return
     endif
-    echo "In progress..."
+    call setbufline(a:bufnr, "$", "In progress..")
     let state['progress_timer'] = timer_start(1000, function('s:PrintProgressMessage', [a:bufnr]))
 endfunction
 
@@ -229,7 +229,7 @@ function! s:StopProgressMessage(bufnr)
             let state['progress_timer'] = v:null
         endif
         let state['awaiting_response'] = v:false
-        echo ""
+        call setbufline(a:bufnr, '$', "")
     endif
 endfunction
 
