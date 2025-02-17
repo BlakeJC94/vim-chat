@@ -162,7 +162,7 @@ endfunction
 
 
 function! chat#NewChatFilepath() abort
-    let filename = strftime('%Y-%m-%d_%H-%m_') . printf("%08x", rand()) . ".chat.vim.json"
+    let filename = strftime('%Y-%m-%d_%H-%M_') . printf("%08x", rand()) . ".chat.vim.json"
     return chat#GetChatPath() . '/' . filename
 endfunction
 

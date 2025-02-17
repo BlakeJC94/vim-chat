@@ -8,6 +8,9 @@
 ### Changed
 - Progress message prints to buffer
 
+### Fixed
+- Generated filename now uses minutes correctly
+
 ## 0.1.0 - 2025-02-17
 ### Added
 - New `chat` filetype
