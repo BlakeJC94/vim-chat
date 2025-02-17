@@ -1,9 +1,16 @@
 # chat.vim
 An asynchronous AI chat interface
 
+## Requirements
+- `curl`
+- `ollama`
+
+Integrations with other AI Chat services can be requested in the Github issues (or feel free to
+open a pull request).
+
 ## Usage
 
-Launch a Chat session with `:Chat`
+Launch a Chat buffer with `:Chat`
 ```
 >>> user
 
@@ -29,9 +36,9 @@ angles.
 
 ```
 
-Coming soon:
-- Session management
-- Buffer and mapping customisation
+All chats are saved locally to `g:vim_chat_path` (default: `~/.chat.vim`) as `*.chat.vim.json`
+files. Past chats can be re-opened and continued by using `:edit` on any of these files.
+
 
 ## Installation
 Use vim's built-in package support or your favourite package manager.
@@ -59,11 +66,6 @@ repository so we can discuss. Pull requests are also welcomed
 ## Development
 The `main` branch is reserved for releases and should be considered stable. Changes should occur in
 the `dev` branch, which will periodically be merged into `main`.
-
-### TODO
-- [ ] Chat buffer
-- [ ] Configuration
-- [ ] History navigation
 
 ## Licence
 Distributed under the same terms as Vim itself. See `:help license`.
