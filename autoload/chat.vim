@@ -1,9 +1,8 @@
 " TODO Better parsing
 " TODO Send chat request on write
 " TODO search hist
-" TODO model options
 " TODO print model name?
-" TODO system message/initial prompt
+" TODO load model into memory with ollama
 let s:vim_chat_config_default = {
 \  "model": "llama3.2:latest",
 \  "endpoint_url": "http://localhost:11434/api/chat"
@@ -199,7 +198,7 @@ function! chat#StartChatRequest() abort
         \ '-H',
         \ 'Content-Type: application/json',
         \ ]
-    if haskey(config, 'token_var')
+    if has_key(config, 'token_var')
         if getenv(config['token_var']) == ''
             echo "Error: Key not found in environment variable '".config["token_var"]."'"
             return
@@ -215,15 +214,25 @@ function! chat#StartChatRequest() abort
     " Track the line where assistant's response should be written
     let state['response_lnum'] = line('$')
 
+    if has_key(config, "system_prompt")
+        let content = config['system_prompt']
+        if type(content) == v:t_list
+            let content = join(content, "\n")
+        endif
+        let sys_msg = {"role": "system", "content": content}
+        let state['messages'] += [sys_msg]
+    endif
     let msg = {"role": "user", "content": s:GetLastUserQueryContent()}
     let state['messages'] += [msg]
     call s:UpdateHistory(bufnr)
-    let payload = json_encode({"model": config["model"], "messages": state['messages']})
 
-    " Run curl asynchronously
+    let payload = {"model": config["model"], "messages": state['messages']}
+    if has_key(config, "options")
+        payload["options"] = config['options']
+    endif
     let body = [
         \ '-d',
-        \ payload,
+        \ json_encode(payload),
         \ ]
     let cmd = [
         \ 'curl',

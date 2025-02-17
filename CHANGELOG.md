@@ -3,6 +3,7 @@
 ## Unreleased
 ### Added
 - Authenticated endpoints via `g:vim_chat_config['token_var']`
+- Configurable system prompts via `g:vim_chat_config['system_prompt']`
 
 ### Changed
 - Progress message prints to buffer

@@ -65,6 +65,22 @@ let g:vim_chat_config = {
 \}
 ```
 
+A system prompt can be specified with the `"system_prompt"` key:
+```
+let g:vim_chat_config = {
+\  ...
+\  "system_prompt": "You are a pirate"
+\}
+```
+Multi-line system prompts can be given as a list
+```
+let g:vim_chat_config = {
+\  ...
+\  "system_prompt": ["You are a pirate", "You give answers in limerick form whenever you can"]
+\}
+```
+
+
 ## Issues
 If any errors are encountered (or you would like to make a feature request), raise an issue on the
 repository so we can discuss. Pull requests are also welcomed
