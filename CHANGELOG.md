@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+### Added
+- Authenticated endpoints via `g:vim_chat_config['token_var']`
+
+### Changed
+- Progress message prints to buffer
+
 ## 0.1.0 - 2025-02-17
 ### Added
 - New `chat` filetype
