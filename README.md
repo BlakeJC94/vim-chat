@@ -2,11 +2,14 @@
 An asynchronous AI chat interface
 
 ## Requirements
+- `vim` version 8 or above
 - `curl`
 - `ollama`
 
 Integrations with other AI Chat services can be requested in the Github issues (or feel free to
 open a pull request).
+
+NOTE: `neovim` support has not been implemented, welcoming any volunteers to help add support!
 
 ## Usage
 
