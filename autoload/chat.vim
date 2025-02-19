@@ -1,7 +1,7 @@
 " TODO Better parsing
-" TODO Send chat request on write
 " TODO search hist
 " TODO print model name?
+" TODO Check if model is available?
 " TODO load model into memory with ollama
 let s:vim_chat_config_default = {
 \  "model": "llama3.2:latest",
@@ -13,8 +13,11 @@ let s:vim_chat_path_default = expand("$HOME") . "/.chat.vim"
 let s:chat_states = {}
 
 
-function! chat#GetChatConfig() abort
-    return extend(s:vim_chat_config_default, get(g:, 'vim_chat_config', {}))
+function! chat#GetChatConfig(...) abort
+    let config_name = get(a:000, 0, "default")
+    let configs = get(g:, 'vim_chat_config', {})
+    let config = has_key(configs, "model") ? configs : get(configs, config_name, {})
+    return extend(s:vim_chat_config_default, config)
 endfunction
 
 
@@ -24,6 +27,40 @@ function! chat#GetChatPath() abort
         call mkdir(chat_path, "p")
     endif
     return chat_path
+endfunction
+
+
+function! chat#OpenChatSplit(mods, ...) abort
+    let l:filepath = fnameescape(chat#NewChatFilepath())
+
+    if a:mods != ''
+        execute a:mods . ' split ' . l:filepath
+    else
+        execute 'split ' . l:filepath
+    endif
+
+    let bufnr = bufnr('%')
+    let s:chat_states[bufnr]["config_name"] = get(a:000, 0, "default")
+endfunction
+
+
+function! chat#DebugChatState(...) abort
+    let bufnr = bufnr('%')
+    if !has_key(s:chat_states, bufnr)
+        echo "Error: No chat buffer state for current buffer"
+        return
+    endif
+    let chat_state = s:chat_states[bufnr]
+    let key = get(a:000, 0, '')
+    if key == ''
+        echo chat_state
+        return
+    endif
+    if !has_key(chat_state, key)
+        echo "Error: Invalid key '" . key . "', select one of " . join(keys(state), ", ")
+        return
+    endif
+    echo chat_state[key]
 endfunction
 
 
@@ -149,6 +186,7 @@ endfunction
 
 function! s:InitialiseChatBufferState(bufnr) abort
     let s:chat_states[a:bufnr] = {
+        \ "config_name": "default",
         \ "response_text": "",
         \ "response_lnum": -1,
         \ "job_id": v:null,
@@ -192,7 +230,7 @@ function! chat#StartChatRequest() abort
         return
     endif
 
-    let config = chat#GetChatConfig()
+    let config = chat#GetChatConfig(state['config_name'])
 
     let header = [
         \ '-H',

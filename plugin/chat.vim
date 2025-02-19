@@ -7,7 +7,9 @@ if exists('g:loaded_chat')
 endif
 let g:loaded_chat = 1
 
-command! -bar Chat execute '<mods> split ' . fnameescape(chat#NewChatFilepath())
+" command! -bar Chat execute '<mods> split ' . fnameescape(chat#NewChatFilepath())
+command! -nargs=* Chat call chat#OpenChatSplit(<q-mods>, <f-args>)
+command! -nargs=* ChatDebug call chat#DebugChatState(<f-args>)
 
 augroup vim_chat
     autocmd!
