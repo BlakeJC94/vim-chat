@@ -51,35 +51,45 @@ Plug 'https://github.com/BlakeJC94/vim-chat'
 This plugin can be configured using a dictionary in your `.vimrc`
 ```
 let g:vim_chat_config = {
-\  "model": "llama3.2:latest",
-\  "endpoint_url": "http://localhost:11434/api/chat"
-\}
+\ "default": {
+\   "model": "llama3.2:latest",
+\   "endpoint_url": "http://localhost:11434/api/chat"
+\   },
+\ }
 ```
+Multiple configs can be configured, load a config with `:Chat [config-name]` (defaults to
+`'default'` if arg is omitted).
 
-If using an enpoint that requires a token for authentication (such as OpenAI), export the token to
-your environment (`$ export TOKEN=<token-value>`) and let vim-chat know where to access this key
+If using an endpoint that requires a token for authentication (such as OpenAI), export the
+authentication token to your environment (`$ export TOKEN=<token-value>`) and let vim-chat know
+where to access this key
 ```
 let g:vim_chat_config = {
-\  ...
-\  "token_var": "TOKEN"
-\}
+\ "default": {
+\   ...
+\   "token_var": "TOKEN"
+\   }
+\ }
 ```
 
 A system prompt can be specified with the `"system_prompt"` key:
 ```
 let g:vim_chat_config = {
-\  ...
-\  "system_prompt": "You are a pirate"
-\}
+\ "default": {
+\   ...
+\   "system_prompt": "You are a pirate"
+\   }
+\ }
 ```
 Multi-line system prompts can be given as a list
 ```
 let g:vim_chat_config = {
-\  ...
-\  "system_prompt": ["You are a pirate", "You give answers in limerick form whenever you can"]
-\}
+\ "default": {
+\    ...
+\    "system_prompt": ["You are a pirate", "You give answers in limerick form whenever you can"]
+\   }
+\ }
 ```
-
 
 ## Issues
 If any errors are encountered (or you would like to make a feature request), raise an issue on the

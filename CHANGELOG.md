@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+### Added
+- Support for multiple configs
+
+
 ## 0.2.0 - 2025-02-19
 ### Added
 - Authenticated endpoints via `g:vim_chat_config['token_var']`
