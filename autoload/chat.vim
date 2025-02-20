@@ -1,6 +1,4 @@
 " TODO search hist
-" TODO Print error message to buffer
-" TODO Check if model is available?
 let s:vim_chat_config_default = {
 \  "model": "llama3.2:latest",
 \  "endpoint_url": "http://localhost:11434/api/chat"
@@ -31,6 +29,20 @@ endfunction
 function! chat#OpenChatSplit(mods, ...) abort
     let l:filepath = fnameescape(chat#NewChatFilepath())
 
+    let config_name = get(a:000, 0, "default")
+    let config = chat#GetChatConfig(config_name)
+
+    if has_key(config, "system_prompt")
+        let content = config['system_prompt']
+        if type(content) == v:t_list
+            let content = join(content, "\n")
+        endif
+        let sys_msg = {"role": "system", "content": content}
+
+        let json_str = "[\n" . json_encode(sys_msg) . "\n]"
+        silent! call writefile(split(json_str, "\n"), l:filepath)
+    endif
+
     if a:mods != ''
         execute a:mods . 'silent split ' . l:filepath
     else
@@ -38,7 +50,6 @@ function! chat#OpenChatSplit(mods, ...) abort
     endif
 
     let bufnr = bufnr('%')
-    let config_name = get(a:000, 0, "default")
     let s:chat_states[bufnr]["config_name"] = config_name
 
     execute 'silent! file [Chat (' . config_name . ')]'
@@ -255,16 +266,6 @@ function! chat#StartChatRequest() abort
 
     let config = chat#GetChatConfig(state['config_name'])
 
-    " Only prepend system prompt at start of chat
-    if len(state['messages']) == 0 && has_key(config, "system_prompt")
-        let content = config['system_prompt']
-        if type(content) == v:t_list
-            let content = join(content, "\n")
-        endif
-        let sys_msg = {"role": "system", "content": content}
-        let state['messages'] += [sys_msg]
-    endif
-
     let header = [
         \ '-H',
         \ 'Content-Type: application/json',
@@ -315,6 +316,7 @@ function! chat#StartChatRequest() abort
     let state['progress_timer'] = timer_start(0, function('s:PrintProgressMessage', [bufnr]))
 
     " Launch curl asynchronously
+    " TODO Add nvim support
     let state['job_id'] = job_start(cmd + header + body, {
         \ 'out_cb': function('s:OnAIResponse', [bufnr]),
         \ 'exit_cb': function('s:OnAIResponseEnd', [bufnr])
@@ -391,7 +393,7 @@ function! s:OnAIResponse(bufnr, channel, msg) abort
     endif
 endfunction
 
-
+" TODO Print errors that occur
 function! s:OnAIResponseEnd(bufnr, job, status) abort
     let state = get(s:chat_states, a:bufnr, v:null)
     let state['response_text'] = ""
