@@ -13,7 +13,7 @@ let s:chat_states = {}
 function! chat#GetChatConfig(...) abort
     let config_name = get(a:000, 0, "default")
     let configs = get(g:, 'vim_chat_config', {})
-    let config = has_key(configs, "model") ? configs : get(configs, config_name, {})
+    let config = has_key(configs, "endpoint") ? configs : get(configs, config_name, {})
     return extend(s:vim_chat_config_default, config)
 endfunction
 
@@ -36,9 +36,12 @@ function! chat#OpenChatSplit(mods, ...) abort
         execute 'split ' . l:filepath
     endif
 
-    " FIXME this has no effect
-    " let bufnr = bufnr('%')
-    " let s:chat_states[bufnr]["config_name"] = get(a:000, 0, "default")
+    let bufnr = bufnr('%')
+    let config_name = get(a:000, 0, "default")
+    let s:chat_states[bufnr]["config_name"] = config_name
+
+    execute 'silent! file [Chat (' . config_name . ')]'
+    normal! G
 endfunction
 
 
@@ -184,7 +187,7 @@ endfunction
 
 function! s:InitialiseChatBufferState(bufnr) abort
     let s:chat_states[a:bufnr] = {
-        \ "config_name": "default",
+        \ "config_name": "",
         \ "response_text": "",
         \ "response_lnum": -1,
         \ "job_id": v:null,

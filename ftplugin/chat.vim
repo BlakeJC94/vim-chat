@@ -10,3 +10,5 @@ setlocal formatoptions-=t
 " TODO Make mappings customizable
 nnoremap <silent> <buffer> <CR> <cmd>call chat#StartChatRequest()<CR>
 nnoremap <silent> <buffer> <BS> <cmd>call chat#StopChatRequest()<CR>
+
+execute 'silent! file [Chat]'
