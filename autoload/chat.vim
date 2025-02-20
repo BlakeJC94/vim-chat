@@ -1,4 +1,5 @@
 " TODO search hist
+" TODO Print error message to buffer
 " TODO Check if model is available?
 let s:vim_chat_config_default = {
 \  "model": "llama3.2:latest",
@@ -282,7 +283,7 @@ function! chat#StartChatRequest() abort
 
     let msg = {"role": "user", "content": s:GetLastUserQueryContent()}
     let state['messages'] += [msg]
-    " TODO re-render messages
+    call s:RenderBuffer(bufnr)
     call s:UpdateHistory(bufnr)
 
     let payload = {"model": config["model"], "messages": state['messages']}
@@ -299,7 +300,7 @@ function! chat#StartChatRequest() abort
         \ config['endpoint_url']
         \ ]
 
-    call appendbufline(bufnr, '$', ["", "<<< user", ">>> assistant", ""])
+    call appendbufline(bufnr, '$', [">>> assistant", ""])
 
     " Track the line where assistant's response should be written
     let state['response_lnum'] = line('$')
@@ -432,8 +433,20 @@ function! chat#InitializeChatBuffer()
         endtry
     endif
 
+    call s:RenderBuffer(bufnr)
+
+    if len(getbufline(bufnr, 1, '$')) == 1
+        call setbufline(bufnr, '$', [">>> user", ""])
+    else
+        call appendbufline(bufnr, '$', [">>> user", ""])
+    endif
+endfunction
+
+function! s:RenderBuffer(bufnr) abort
+    let bufnr = a:bufnr
+    let state = s:chat_states[bufnr]
     " Clear buffer before inserting history
-    normal ggdG
+    silent call deletebufline(bufnr, 1, '$')
 
     " Append messages in the correct format
     for msg_idx in range(len(state['messages']))
@@ -448,10 +461,4 @@ function! chat#InitializeChatBuffer()
         call appendbufline(bufnr, '$', split(content, "\n") + [""])
         call appendbufline(bufnr, '$', "<<< " . role)
     endfor
-
-    if len(getbufline(bufnr, 1, '$')) == 1
-        call setbufline(bufnr, '$', [">>> user", ""])
-    else
-        call appendbufline(bufnr, '$', [">>> user", ""])
-    endif
 endfunction
