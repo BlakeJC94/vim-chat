@@ -1,4 +1,5 @@
 " TODO search hist
+" TODO Delete empty chat files
 let s:vim_chat_config_default = {
 \  "model": "llama3.2:latest",
 \  "endpoint_url": "http://localhost:11434/api/chat"
