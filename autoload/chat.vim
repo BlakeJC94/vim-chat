@@ -244,8 +244,6 @@ function! chat#StartChatRequest() abort
             \ ]
     endif
 
-    call appendbufline(bufnr, '$', ["", "<<< user", ">>> assistant", ""])
-
     " Track the line where assistant's response should be written
     let state['response_lnum'] = line('$')
 
@@ -276,6 +274,12 @@ function! chat#StartChatRequest() abort
         \ '--no-buffer',
         \ config['endpoint_url']
         \ ]
+
+    call appendbufline(bufnr, '$', ["", "<<< user", ">>> assistant", ""])
+    let winid = bufwinid(bufnr)
+    if winid != -1
+        call win_execute(winid, "normal! G")
+    endif
 
     " Start progress message loop
     let state['awaiting_response'] = v:true
