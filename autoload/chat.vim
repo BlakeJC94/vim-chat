@@ -230,6 +230,28 @@ function! chat#StartChatRequest() abort
         return
     endif
 
+    " prompt config selection if not set
+    if empty(state['config_name'])
+        let configs = get(g:, 'vim_chat_config', {})
+        if has_key(configs, "endpoint")
+            let config_name = "default"
+        elseif len(keys(configs)) == 1
+            let config_name = keys(configs)[0]
+        else
+            let menu = "Choose config type\n"
+            let opts = keys(configs)
+            for idx in range(len(opts))
+                let opt = opts[idx]
+                let menu .= printf("%d. %s\n", idx+1, opt)
+            endfor
+            let full_prompt = menu . "Type number and <Enter> (empty cancels): "
+            let choice = input(full_prompt)
+            let config_name = opts[choice - 1]
+        endif
+        let state['config_name'] = config_name
+        execute 'silent! file [Chat (' . config_name . ')]'
+    endif
+
     let config = chat#GetChatConfig(state['config_name'])
 
     let header = [
