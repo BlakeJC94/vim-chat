@@ -1,8 +1,5 @@
-" TODO Better parsing
 " TODO search hist
-" TODO print model name?
 " TODO Check if model is available?
-" TODO load model into memory with ollama
 let s:vim_chat_config_default = {
 \  "model": "llama3.2:latest",
 \  "endpoint_url": "http://localhost:11434/api/chat"
@@ -39,8 +36,9 @@ function! chat#OpenChatSplit(mods, ...) abort
         execute 'split ' . l:filepath
     endif
 
-    let bufnr = bufnr('%')
-    let s:chat_states[bufnr]["config_name"] = get(a:000, 0, "default")
+    " FIXME this has no effect
+    " let bufnr = bufnr('%')
+    " let s:chat_states[bufnr]["config_name"] = get(a:000, 0, "default")
 endfunction
 
 
@@ -205,7 +203,6 @@ function! chat#NewChatFilepath() abort
 endfunction
 
 
-
 function! s:PrintProgressMessage(bufnr, timer_id) abort
     let state = s:chat_states[a:bufnr]
     if !state['awaiting_response']
@@ -252,16 +249,18 @@ function! chat#StartChatRequest() abort
     " Track the line where assistant's response should be written
     let state['response_lnum'] = line('$')
 
-    if has_key(config, "system_prompt")
-        let content = config['system_prompt']
-        if type(content) == v:t_list
-            let content = join(content, "\n")
-        endif
-        let sys_msg = {"role": "system", "content": content}
-        let state['messages'] += [sys_msg]
-    endif
+    " FIXME Only prepend system prompt at start of chat
+    " if has_key(config, "system_prompt")
+    "     let content = config['system_prompt']
+    "     if type(content) == v:t_list
+    "         let content = join(content, "\n")
+    "     endif
+    "     let sys_msg = {"role": "system", "content": content}
+    "     let state['messages'] += [sys_msg]
+    " endif
     let msg = {"role": "user", "content": s:GetLastUserQueryContent()}
     let state['messages'] += [msg]
+    " TODO re-render messages
     call s:UpdateHistory(bufnr)
 
     let payload = {"model": config["model"], "messages": state['messages']}
