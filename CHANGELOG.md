@@ -3,6 +3,10 @@
 ## Unreleased
 ### Added
 - Support for multiple configs
+- Added arg for `:Chat` to select config
+- Prompt to select config if unset
+- Commands `:ChatStart` and `:ChatStop`
+- Plug mappings `<plug>(chat-start)` and `<plug>(chat-stop)`
 
 
 ## 0.2.0 - 2025-02-19
