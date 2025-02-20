@@ -384,7 +384,7 @@ function! s:OnAIResponse(bufnr, channel, msg) abort
         let cursor_lnum = win_execute(winid, 'echo line(".")')->split("\n")[-1]
         let last_lnum = win_execute(winid, 'echo line("$")')->split("\n")[-1]
 
-        if cursor_lnum + 1 == last_lnum
+        if has_key(chunk, "done_reason") || cursor_lnum + 1 == last_lnum
             call win_execute(winid, "normal! G")
         endif
     endif
