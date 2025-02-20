@@ -432,8 +432,6 @@ function! chat#InitializeChatBuffer()
         endtry
     endif
 
-    execute 'silent! file [Chat]'
-
     " Clear buffer before inserting history
     normal ggdG
 
@@ -456,6 +454,4 @@ function! chat#InitializeChatBuffer()
     else
         call appendbufline(bufnr, '$', [">>> user", ""])
     endif
-
-    normal! G
 endfunction
