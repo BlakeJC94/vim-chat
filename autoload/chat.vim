@@ -254,6 +254,16 @@ function! chat#StartChatRequest() abort
 
     let config = chat#GetChatConfig(state['config_name'])
 
+    " Only prepend system prompt at start of chat
+    if len(state['messages']) == 0 && has_key(config, "system_prompt")
+        let content = config['system_prompt']
+        if type(content) == v:t_list
+            let content = join(content, "\n")
+        endif
+        let sys_msg = {"role": "system", "content": content}
+        let state['messages'] += [sys_msg]
+    endif
+
     let header = [
         \ '-H',
         \ 'Content-Type: application/json',
@@ -269,18 +279,7 @@ function! chat#StartChatRequest() abort
             \ ]
     endif
 
-    " Track the line where assistant's response should be written
-    let state['response_lnum'] = line('$')
 
-    " FIXME Only prepend system prompt at start of chat
-    " if has_key(config, "system_prompt")
-    "     let content = config['system_prompt']
-    "     if type(content) == v:t_list
-    "         let content = join(content, "\n")
-    "     endif
-    "     let sys_msg = {"role": "system", "content": content}
-    "     let state['messages'] += [sys_msg]
-    " endif
     let msg = {"role": "user", "content": s:GetLastUserQueryContent()}
     let state['messages'] += [msg]
     " TODO re-render messages
@@ -301,6 +300,10 @@ function! chat#StartChatRequest() abort
         \ ]
 
     call appendbufline(bufnr, '$', ["", "<<< user", ">>> assistant", ""])
+
+    " Track the line where assistant's response should be written
+    let state['response_lnum'] = line('$')
+
     let winid = bufwinid(bufnr)
     if winid != -1
         call win_execute(winid, "normal! G")
