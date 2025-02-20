@@ -31,9 +31,9 @@ function! chat#OpenChatSplit(mods, ...) abort
     let l:filepath = fnameescape(chat#NewChatFilepath())
 
     if a:mods != ''
-        execute a:mods . ' split ' . l:filepath
+        execute a:mods . 'silent split ' . l:filepath
     else
-        execute 'split ' . l:filepath
+        execute 'silent split ' . l:filepath
     endif
 
     let bufnr = bufnr('%')
