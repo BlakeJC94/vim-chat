@@ -408,26 +408,22 @@ function! chat#InitializeChatBuffer()
     " Append messages in the correct format
     for msg_idx in range(len(state['messages']))
         let msg = state['messages'][msg_idx]
-        if msg.role == "user"
-            if msg_idx == 0
-                call setbufline(bufnr, '$', ">>> user")
-            else
-                call appendbufline(bufnr, '$', "<<< assistant")
-                call appendbufline(bufnr, '$', ">>> user")
-            endif
-        elseif msg.role == "assistant"
-            call appendbufline(bufnr, '$', "<<< user")
-            call appendbufline(bufnr, '$', ">>> assistant")
+        let role = msg['role']
+        let content = msg['content']
+        if len(getbufline(bufnr, 1, '$')) == 1
+            call setbufline(bufnr, '$', ">>> " . role)
+        else
+            call appendbufline(bufnr, '$', ">>> " . role)
         endif
-        call appendbufline(bufnr, '$', split(msg.content, "\n") + [""])
+        call appendbufline(bufnr, '$', split(content, "\n") + [""])
+        call appendbufline(bufnr, '$', "<<< " . role)
     endfor
 
-    call appendbufline(bufnr, '$', [">>> user", ""])
-
-    let lnum = 1
-    while lnum <= line('$') && getline(lnum) =~ '^\s*$'
-        execute lnum . 'delete'
-    endwhile
+    if len(getbufline(bufnr, 1, '$')) == 1
+        call setbufline(bufnr, '$', [">>> user", ""])
+    else
+        call appendbufline(bufnr, '$', [">>> user", ""])
+    endif
 
     normal! G
 endfunction
