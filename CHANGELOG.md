@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2025-02-19
 ### Added
 - Support for multiple configs
 - Added arg for `:Chat` to select config
