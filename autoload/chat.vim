@@ -441,3 +441,21 @@ function! s:RenderBuffer(bufnr) abort
         call appendbufline(bufnr, '$', "<<< " . role)
     endfor
 endfunction
+
+
+function! chat#ConfigCompletion(ArgLead, CmdLine, CursorPos)
+    echo a:ArgLead
+    let configs = get(g:, 'vim_chat_config', {})
+    let results = []
+    if len(configs) == 0 || has_key(configs, 'endpoint')
+        return results
+    endif
+    let keys = keys(configs)
+
+    for key in keys
+        if key =~ '^' . a:ArgLead
+            call add(results, key)
+        endif
+    endfor
+    return results
+endfunction
