@@ -292,11 +292,17 @@ function! chat#StartChatRequest() abort
     let state['progress_timer'] = timer_start(0, function('s:PrintProgressMessage', [bufnr]))
 
     " Launch curl asynchronously
-    " TODO Add nvim support
-    let state['job_id'] = job_start(cmd + header + body, {
-        \ 'out_cb': function('s:OnAIResponse', [bufnr]),
-        \ 'exit_cb': function('s:OnAIResponseEnd', [bufnr])
-        \ })
+    if has('nvim')
+        let state['job_id'] = jobstart(cmd + header + body, {
+            \ 'on_stdout': function('s:OnAIResponseNvim', [bufnr]),
+            \ 'on_exit': function('s:OnAIResponseEndNvim', [bufnr])
+            \ })
+    else
+        let state['job_id'] = job_start(cmd + header + body, {
+            \ 'out_cb': function('s:OnAIResponse', [bufnr]),
+            \ 'exit_cb': function('s:OnAIResponseEnd', [bufnr])
+            \ })
+    endif
 endfunction
 
 
@@ -317,7 +323,10 @@ function! s:StopProgressMessage(bufnr)
 endfunction
 
 
-function! s:OnAIResponse(bufnr, channel, msg) abort
+function! s:OnAIResponseNvim(bufnr, _job_id, data, _event) abort
+    call s:OnAIResponse(a:bufnr, v:null, join(a:data))
+endfunction
+function! s:OnAIResponse(bufnr, _channel, msg) abort
     let state = get(s:chat_states, a:bufnr, v:null)
 
     if state is v:null || !bufexists(a:bufnr)
@@ -369,8 +378,12 @@ function! s:OnAIResponse(bufnr, channel, msg) abort
     endif
 endfunction
 
+
 " TODO Print errors that occur
-function! s:OnAIResponseEnd(bufnr, job, status) abort
+function! s:OnAIResponseEndNvim(bufnr, _job_id, _data, _event) abort
+    call s:OnAIResponseEnd(a:bufnr, v:null, v:null)
+endfunction
+function! s:OnAIResponseEnd(bufnr, _job, _status) abort
     let state = get(s:chat_states, a:bufnr, v:null)
     let state['response_text'] = ""
     let state['job_id'] = v:null
