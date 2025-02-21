@@ -392,11 +392,6 @@ endfunction
 
 function! chat#InitializeChatBuffer()
     let bufnr = bufnr('%')
-    if has_key(s:chat_states, bufnr)
-        echo "Chat buffer already initialized"
-        return
-    endif
-
     let state = s:InitialiseChatBufferState(bufnr)
 
     let json_str = trim(join(getbufline(bufnr, 1, '$'), ""))
