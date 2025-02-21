@@ -21,5 +21,5 @@ nmap <silent> <plug>(chat-stop) <cmd>call chat#StopChatRequest()<CR>
 
 augroup vim_chat
     autocmd!
-    autocmd BufNewFile,BufReadPost,FileReadPost *.chat.vim.json call chat#InitializeChatBuffer()
+    autocmd BufNewFile,BufReadPre *.chat.vim.json call chat#InitializeChatBuffer()
 augroup END
