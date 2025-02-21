@@ -157,33 +157,8 @@ function! s:GetLastUserQueryContent() abort
     let l:processed_lines = []
     let l:current_paragraph = []
 
-    for l:line in l:user_text
-        if l:line =~ '^\s*$'  " Blank line: end of paragraph
-            if !empty(l:current_paragraph)
-                call add(l:processed_lines, join(l:current_paragraph, ' '))
-                let l:current_paragraph = []
-            endif
-            call add(l:processed_lines, '')  " Preserve blank line
-        elseif l:line =~ '^\s'
-            " Likely a code block (indented line), preserve as-is
-            if !empty(l:current_paragraph)
-                call add(l:processed_lines, join(l:current_paragraph, ' '))
-                let l:current_paragraph = []
-            endif
-            call add(l:processed_lines, l:line)
-        else
-            " Normal sentence, add to paragraph buffer
-            call add(l:current_paragraph, l:line)
-        endif
-    endfor
-
-    " Add any remaining paragraph
-    if !empty(l:current_paragraph)
-        call add(l:processed_lines, join(l:current_paragraph, ' '))
-    endif
-
     " Return all lines after the last '>>> user'
-    return trim(join(l:processed_lines, "\n"))
+    return trim(join(l:user_text, "\n"))
 endfunction
 
 
@@ -444,6 +419,7 @@ function! chat#InitializeChatBuffer()
         call appendbufline(bufnr, '$', [">>> user", ""])
     endif
 endfunction
+
 
 function! s:RenderBuffer(bufnr) abort
     let bufnr = a:bufnr
