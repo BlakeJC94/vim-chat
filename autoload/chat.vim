@@ -459,3 +459,83 @@ function! chat#ConfigCompletion(ArgLead, CmdLine, CursorPos)
     endfor
     return results
 endfunction
+
+
+function! s:WrapText(text, width)
+    " Split the input text into lines based on newlines
+    let lines = split(a:text, "\n")
+    let result = []
+
+    for line in lines
+        while len(line) > a:width
+            " Find the last whitespace character within the width limit
+            let index = match(line[:a:width-1], '\s\+$')
+
+            if index == -1
+                " If no whitespace is found, forcefully break at width
+                let index = a:width
+            endif
+
+            " Add the portion of the line up to the index to result
+            call add(result, line[:index-1])
+            " Remove the processed part from the original line
+            let line = line[index:]
+        endwhile
+
+        " Add any remaining text that fits within the width limit
+        if len(line) > 0
+            call add(result, line)
+        endif
+    endfor
+
+    return result
+endfunction
+
+
+function! chat#GrepChats(query, ...) abort
+    " Ensure there's a query provided
+    if empty(a:query)
+        echo "Please provide a search query."
+        return
+    endif
+
+    let query = a:query
+    let search = get(a:000, 0, v:false)
+    if search
+        let query = '\<' . query . '\>'
+    endif
+
+    " Build the vimgrep command for *.chat.vim.json files in g:vim_chat_path
+    let grep_command = printf('vimgrep /%s/j %s/*.chat.vim.json', escape(query, '/'), chat#GetChatPath())
+
+    " Execute the vimgrep command to populate the quickfix list with initial matches
+    execute 'silent! ' . grep_command
+
+    " Get all current entries in the quickfix list
+    let matches = getqflist()
+
+    " Define a new empty list for filtered results
+    let filtered_results = []
+
+    " Iterate over each match to apply your custom filtering logic
+    let width = max([20, winwidth(0) - 20])
+    for match in matches
+        let line_text = match.text
+        let wrapped_text = s:WrapText(line_text, width)
+
+        for line in wrapped_text
+            if match(line, query) > -1
+                let foo = copy(match)
+                let foo['text'] = line
+                call add(filtered_results, foo)
+                break
+            endif
+        endfor
+    endfor
+
+    " Clear the current quickfix list and set with filtered results
+    call setqflist(filtered_results)
+
+    " Open the quickfix window to show results
+    copen
+endfunction

@@ -13,6 +13,9 @@ command! -nargs=* ChatDebug call chat#DebugChatState(<f-args>)
 command! ChatSend call chat#StartChatRequest()
 command! ChatStop call chat#StopChatRequest()
 
+command! -nargs=* ChatGrep call chat#GrepChats(<f-args>)
+command! -nargs=* ChatSearch call chat#GrepChats(<f-args>, v:true)
+
 nmap <silent> <plug>(chat-start) <cmd>call chat#StartChatRequest()<CR>
 nmap <silent> <plug>(chat-stop) <cmd>call chat#StopChatRequest()<CR>
 

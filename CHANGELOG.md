@@ -8,6 +8,8 @@
 - Commands `:ChatStart` and `:ChatStop`
 - Plug mappings `<plug>(chat-start)` and `<plug>(chat-stop)`
 - Completion for `Chat` command
+- Commands `:ChatSearch` and `:ChatGrep` for searching chats and placing in
+quickfix
 
 
 ## 0.2.0 - 2025-02-19
