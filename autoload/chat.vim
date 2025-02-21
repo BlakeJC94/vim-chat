@@ -403,11 +403,17 @@ function! chat#StopChatRequest() abort
 endfunction
 
 
-function! chat#InitializeChatBuffer()
-    let bufnr = bufnr('%')
+function! chat#InitializeChatBuffer(...)
+    let bufnr = get(a:000, 0, bufnr("%"))
+    let filepath = bufname(bufnr)
     let state = s:InitialiseChatBufferState(bufnr)
 
-    let json_str = trim(join(getbufline(bufnr, 1, '$'), ""))
+    if filereadable(filepath)
+        let content = readfile(filepath)
+    else
+        let content = []
+    endif
+    let json_str = trim(join(content, ""))
     if empty(json_str)
         let state['messages'] = []
     else
