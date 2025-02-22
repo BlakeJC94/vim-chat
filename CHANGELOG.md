@@ -1,9 +1,8 @@
 # Changelog
 
-## Unreleased
-
+## 1.0.0 - 2025-02-22
 ### Breaking changes
-- format for saved chats is now `*.chat` instead of `*.chat.vim.json`
+- Format for saved chats is now `*.chat` instead of `*.chat.vim.json`
 
 
 ## 0.3.0 - 2025-02-19
