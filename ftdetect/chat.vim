@@ -1,1 +1,1 @@
-autocmd BufNewFile,BufRead *.chat.vim.json set ft=chat
+au BufRead,BufNewFile *.chat set filetype=chat

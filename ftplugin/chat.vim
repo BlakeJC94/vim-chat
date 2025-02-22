@@ -10,5 +10,3 @@ setlocal formatoptions-=t
 " TODO Make mappings customizable
 nmap <silent> <buffer> <CR> <plug>(chat-start)
 nmap <silent> <buffer> <BS> <plug>(chat-stop)
-
-execute 'silent! file [Chat]'

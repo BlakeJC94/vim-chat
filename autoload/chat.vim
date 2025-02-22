@@ -1,5 +1,3 @@
-" TODO search hist
-" TODO Delete empty chat files
 let s:vim_chat_config_default = {
 \  "model": "llama3.2:latest",
 \  "endpoint_url": "http://localhost:11434/api/chat"
@@ -8,6 +6,7 @@ let s:vim_chat_path_default = expand("$HOME") . "/.chat.vim"
 
 " Globals
 let s:chat_states = {}
+let g:chat_states = s:chat_states
 
 
 function! chat#GetChatConfig(...) abort
@@ -28,30 +27,27 @@ endfunction
 
 
 function! chat#OpenChatSplit(mods, ...) abort
-    let l:filepath = fnameescape(chat#NewChatFilepath())
+    let filepath = fnameescape(chat#NewChatFilepath())
 
     let config_name = get(a:000, 0, "default")
     let config = chat#GetChatConfig(config_name)
 
-    if has_key(config, "system_prompt")
-        let content = config['system_prompt']
-        if type(content) == v:t_list
-            let content = join(content, "\n")
-        endif
-        let sys_msg = {"role": "system", "content": content}
-
-        let json_str = "[\n" . json_encode(sys_msg) . "\n]"
-        silent! call writefile(split(json_str, "\n"), l:filepath)
-    endif
-
     if a:mods != ''
-        execute a:mods . 'silent split ' . l:filepath
+        execute a:mods . 'silent split ' . filepath
     else
-        execute 'silent split ' . l:filepath
+        execute 'silent split ' . filepath
     endif
 
     let bufnr = bufnr('%')
     let s:chat_states[bufnr]["config_name"] = config_name
+
+    if has_key(config, "system_prompt") && len(s:chat_states[bufnr]['messages']) == 0
+        let content = config['system_prompt']
+        if type(content) == v:t_list
+            let content = join(content, "\n")
+        endif
+        call appendbufline(bufnr, 0, [">>> system", content, "", "<<< system"])
+    endif
 
     execute 'silent! file [Chat (' . config_name . ')]'
     normal! G
@@ -78,51 +74,26 @@ function! chat#DebugChatState(...) abort
 endfunction
 
 
-function! s:GetChatHistory() abort
+function! s:GetChatHistory(bufnr) abort
     " Get buffer content
-    let lines = getline(1, '$')
+    let lines = getbufline(a:bufnr, 1, '$')
 
     let messages = []
     let current_role = ''
     let current_message = ''
-    let collecting_message = 0
 
     " Loop through buffer to extract user/assistant pairs
     for line in lines
-        if line =~ '^>>> user'
-            " If we are switching to user, push previous message if exists
-            if collecting_message
-                " Clean up content: trim and remove '<<< user' and '<<< assistant'
-                let current_message = substitute(current_message, '<<< user\|<<< assistant', '', 'g')
-                let current_message = trim(current_message)
-                call add(messages, {'role': current_role, 'content': current_message})
-            endif
-            let current_role = 'user'
-            let current_message = trim(substitute(line, '>>> user\|>>> assistant', '', 'g'))
-            let collecting_message = 1
-        elseif line =~ '^>>> assistant'
-            " If we are switching to assistant, push previous message if exists
-            if collecting_message
-                " Clean up content: trim and remove '<<< user' and '<<< assistant'
-                let current_message = substitute(current_message, '<<< user\|<<< assistant', '', 'g')
-                let current_message = trim(current_message)
-                call add(messages, {'role': current_role, 'content': current_message})
-            endif
-            let current_role = 'assistant'
-            let current_message = trim(substitute(line, '>>> user\|>>> assistant', '', 'g'))
-            let collecting_message = 1
-        elseif collecting_message
-            " Append the line to the current message (preserving newlines)
+        if line =~ trim('^<<< ' . current_role)
+            call add(messages, {'role': current_role, 'content': current_message})
+            let current_role = ''
+            let current_message = ''
+        elseif line =~ '^>>>'
+            let current_role = substitute(line, '^>>>\s\(.*\)', '\1', '')
+        else
             let current_message .= "\n" . line
         endif
     endfor
-
-    " Append the last collected message, after cleanup
-    if collecting_message
-        let current_message = trim(current_message)
-        let current_message = substitute(current_message, '<<< user\|<<< assistant', '', 'g')
-        call add(messages, {'role': current_role, 'content': current_message})
-    endif
     return messages
 endfunction
 
@@ -167,13 +138,14 @@ function! s:UpdateHistory(bufnr) abort
     if state is v:null
         return
     endif
-    let json_list = map(copy(state['messages']), 'printf("  %s", json_encode(v:val))')
-    let json_str = "[\n" . join(json_list, ",\n") . "\n]"
-    silent! call writefile(split(json_str, "\n"), state['messages_filepath'])
+    silent! call writefile(getbufline(a:bufnr, 1,'$'), state['messages_filepath'])
 endfunction
 
 
-function! s:InitialiseChatBufferState(bufnr) abort
+function! chat#InitializeChatBufferState(bufnr) abort
+    if has_key(s:chat_states, a:bufnr)
+        return
+    endif
     let s:chat_states[a:bufnr] = {
         \ "config_name": "",
         \ "response_text": "",
@@ -181,15 +153,15 @@ function! s:InitialiseChatBufferState(bufnr) abort
         \ "job_id": v:null,
         \ "awaiting_response": v:false,
         \ "progress_timer": v:null,
-        \ "messages": [],
-        \ "messages_filepath": expand('%'),
+        \ "messages": s:GetChatHistory(a:bufnr),
+        \ "messages_filepath": bufname(a:bufnr),
         \ }
-    return s:chat_states[a:bufnr]
+    call chat#WritePrompt(a:bufnr)
 endfunction
 
 
 function! chat#NewChatFilepath() abort
-    let filename = strftime('%Y-%m-%d_%H-%M_') . printf("%08x", rand()) . ".chat.vim.json"
+    let filename = strftime('%Y-%m-%d_%H-%M_') . printf("%08x", rand()) . ".chat"
     return chat#GetChatPath() . '/' . filename
 endfunction
 
@@ -360,8 +332,9 @@ function! s:OnAIResponse(bufnr, _channel, msg) abort
     call setbufline(a:bufnr, state['response_lnum'], response_lines)
 
     if has_key(chunk, "done_reason")
-        call appendbufline(a:bufnr, '$', ["", "<<< assistant", ">>> user", ""])
+        call appendbufline(a:bufnr, '$', ["", "<<< assistant"])
         call s:UpdateHistory(a:bufnr)
+        call chat#WritePrompt(a:bufnr)
         let state['response_text'] = ""
         let state['response_lnum'] = line('$')  " Update response line tracking
     endif
@@ -403,33 +376,8 @@ function! chat#StopChatRequest() abort
 endfunction
 
 
-function! chat#InitializeChatBuffer(...)
-    let bufnr = get(a:000, 0, bufnr("%"))
-    let filepath = bufname(bufnr)
-    let state = s:InitialiseChatBufferState(bufnr)
-
-
-    if filereadable(filepath)
-        let content = readfile(filepath)
-    else
-        let content = []
-    endif
-    let json_str = trim(join(content, ""))
-    if empty(json_str)
-        let state['messages'] = []
-    else
-        try
-            let state['messages'] = json_decode(json_str)
-        catch /JSON/
-            echohl ErrorMsg | echom "Invalid JSON format" | echohl None
-            return
-        endtry
-    endif
-
-    let state = s:chat_states[bufnr]
-    let lines = s:GetRenderedLines(state['messages'])
-    silent call setbufline(bufnr, 1, lines)
-
+function! chat#WritePrompt(bufnr) abort
+    let bufnr = a:bufnr
     if len(getbufline(bufnr, 1, '$')) == 1
         call setbufline(bufnr, '$', [">>> user", ""])
     else
@@ -482,81 +430,20 @@ function! chat#ConfigCompletion(ArgLead, CmdLine, CursorPos)
 endfunction
 
 
-function! s:WrapText(text, width)
-    " Split the input text into lines based on newlines
-    let lines = split(a:text, "\n")
-    let result = []
-
-    for line in lines
-        while len(line) > a:width
-            " Find the last whitespace character within the width limit
-            let index = match(line[:a:width-1], '\s\+$')
-
-            if index == -1
-                " If no whitespace is found, forcefully break at width
-                let index = a:width
-            endif
-
-            " Add the portion of the line up to the index to result
-            call add(result, line[:index-1])
-            " Remove the processed part from the original line
-            let line = line[index:]
-        endwhile
-
-        " Add any remaining text that fits within the width limit
-        if len(line) > 0
-            call add(result, line)
-        endif
-    endfor
-
-    return result
-endfunction
-
-
 function! chat#GrepChats(query, ...) abort
-    " Ensure there's a query provided
-    if empty(a:query)
+    let query = a:query
+    let search = get(a:000, 0, v:false)
+
+    if empty(query)
         echo "Please provide a search query."
         return
     endif
 
-    let query = a:query
-    let search = get(a:000, 0, v:false)
     if search
         let query = '\<' . query . '\>'
     endif
 
-    " Build the vimgrep command for *.chat.vim.json files in g:vim_chat_path
-    let grep_command = printf('vimgrep /%s/j %s/*.chat.vim.json', escape(query, '/'), chat#GetChatPath())
-
-    " Execute the vimgrep command to populate the quickfix list with initial matches
+    let grep_command = printf('vimgrep /%s/j %s/*.chat', escape(query, '/'), chat#GetChatPath())
     execute 'silent! ' . grep_command
-
-    " Get all current entries in the quickfix list
-    let matches = getqflist()
-
-    " Define a new empty list for filtered results
-    let filtered_results = []
-
-    " Iterate over each match to apply your custom filtering logic
-    let width = max([20, winwidth(0) - 20])
-    for match in matches
-        let line_text = match.text
-        let wrapped_text = s:WrapText(line_text, width)
-
-        for line in wrapped_text
-            if match(line, query) > -1
-                let foo = copy(match)
-                let foo['text'] = line
-                call add(filtered_results, foo)
-                break
-            endif
-        endfor
-    endfor
-
-    " Clear the current quickfix list and set with filtered results
-    call setqflist(filtered_results)
-
-    " Open the quickfix window to show results
     copen
 endfunction
