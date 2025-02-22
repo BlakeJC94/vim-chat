@@ -408,6 +408,7 @@ function! chat#InitializeChatBuffer(...)
     let filepath = bufname(bufnr)
     let state = s:InitialiseChatBufferState(bufnr)
 
+
     if filereadable(filepath)
         let content = readfile(filepath)
     else
@@ -425,7 +426,9 @@ function! chat#InitializeChatBuffer(...)
         endtry
     endif
 
-    call s:RenderBuffer(bufnr)
+    let state = s:chat_states[bufnr]
+    let lines = s:GetRenderedLines(state['messages'])
+    silent call setbufline(bufnr, 1, lines)
 
     if len(getbufline(bufnr, 1, '$')) == 1
         call setbufline(bufnr, '$', [">>> user", ""])
@@ -435,25 +438,29 @@ function! chat#InitializeChatBuffer(...)
 endfunction
 
 
+function! s:GetRenderedLines(messages)
+    let messages = a:messages
+    let lines = []
+
+    for msg_idx in range(len(messages))
+        let msg = messages[msg_idx]
+        let role = msg['role']
+        let content = msg['content']
+
+        call add(lines, ">>> " . role)
+        let lines += split(content, "\n") + [""]
+        call add(lines, "<<< " . role)
+    endfor
+
+    return lines
+endfunction
+
+
 function! s:RenderBuffer(bufnr) abort
     let bufnr = a:bufnr
     let state = s:chat_states[bufnr]
-    " Clear buffer before inserting history
-    silent call deletebufline(bufnr, 1, '$')
-
-    " Append messages in the correct format
-    for msg_idx in range(len(state['messages']))
-        let msg = state['messages'][msg_idx]
-        let role = msg['role']
-        let content = msg['content']
-        if len(getbufline(bufnr, 1, '$')) == 1
-            call setbufline(bufnr, '$', ">>> " . role)
-        else
-            call appendbufline(bufnr, '$', ">>> " . role)
-        endif
-        call appendbufline(bufnr, '$', split(content, "\n") + [""])
-        call appendbufline(bufnr, '$', "<<< " . role)
-    endfor
+    let lines = s:GetRenderedLines(state['messages'])
+    silent call setbufline(bufnr, 1, lines)
 endfunction
 
 
