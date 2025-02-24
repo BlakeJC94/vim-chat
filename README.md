@@ -3,9 +3,11 @@ An asynchronous AI chat interface
 
 ## Requirements
 - `vim` version 8 or above
-    - compatible with `neovim` version 0.8
+    - compatible with `neovim` version 0.8 and above
 - `curl`
 - `ollama`
+    - If using the default settings, `llama3.2:latest` is required. See the
+      Installation section on how to use models of your choice
 
 Integrations with other AI Chat services can be requested in the Github issues (or feel free to
 open a pull request).
@@ -100,6 +102,12 @@ repository so we can discuss. Pull requests are also welcomed
 ## Development
 The `main` branch is reserved for releases and should be considered stable. Changes should occur in
 the `dev` branch, which will periodically be merged into `main`.
+
+## Credits
+A lot of credit goes to [madox2/vim-ai](https://github.com/madox2/vim-ai), I
+highly recommend you check it out if you're interested in AI integrations in
+`vim`. I'm open to collaborating to add async support to this plugin as well if
+there's appetite to do so
 
 ## Licence
 Distributed under the same terms as Vim itself. See `:help license`.
