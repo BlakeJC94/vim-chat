@@ -1,6 +1,8 @@
 # chat.vim
 An asynchronous AI chat interface
 
+[![asciicast](https://asciinema.org/a/H1CdcqE6szMVhQhTnRiOX0uag.svg)](https://asciinema.org/a/H1CdcqE6szMVhQhTnRiOX0uag)
+
 ## Requirements
 - `vim` version 8 or above
     - compatible with `neovim` version 0.8 and above
