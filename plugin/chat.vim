@@ -1,6 +1,6 @@
 " chat.vim - An asynchronous AI Chat interface for Vim
 " Maintainer:  BlakeJC94 <https://github.com/BlakeJC94>
-" Version:     1.0.0
+" Version:     1.0.1
 
 if exists('g:loaded_chat')
     finish

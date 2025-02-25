@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 - 2025-02-25
+### Fixed
+- Modifiers not working for `:Chat` command
+
+
 ## 1.0.0 - 2025-02-22
 ### Breaking changes
 - Format for saved chats is now `*.chat` instead of `*.chat.vim.json`

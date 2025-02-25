@@ -33,7 +33,7 @@ function! chat#OpenChatSplit(mods, ...) abort
     let config = chat#GetChatConfig(config_name)
 
     if a:mods != ''
-        execute a:mods . 'silent split ' . filepath
+        execute 'silent ' . a:mods . ' split ' . filepath
     else
         execute 'silent split ' . filepath
     endif
