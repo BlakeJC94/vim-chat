@@ -156,7 +156,8 @@ function! chat#InitializeChatBufferState(bufnr) abort
         \ "messages": s:GetChatHistory(a:bufnr),
         \ "messages_filepath": bufname(a:bufnr),
         \ }
-    call chat#WritePrompt(a:bufnr)
+    " call chat#WritePrompt(a:bufnr)
+    call timer_start(50, {-> chat#WritePrompt(a:bufnr)})
 endfunction
 
 
