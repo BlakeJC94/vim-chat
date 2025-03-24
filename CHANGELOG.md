@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2 - 2025-03-24
+### Fixed
+- Added delay to allow buffer to initialise properly
+
 ## 1.0.1 - 2025-02-25
 ### Fixed
 - Modifiers not working for `:Chat` command
